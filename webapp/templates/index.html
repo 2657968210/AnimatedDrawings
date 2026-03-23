@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✏️ 手绘转动画 — AnimatedDrawings</title>
+<style>
+  :root {
+    --primary: #6c63ff;
+    --primary-dark: #574fd6;
+    --bg: #f0f2f8;
+    --card: #ffffff;
+    --text: #2d2d3a;
+    --muted: #8a8a9a;
+    --success: #22c55e;
+    --error: #ef4444;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header { background: var(--primary); color: white; padding: 24px 32px; display:flex; align-items:center; gap:16px; }
+  header h1 { font-size: 1.6rem; font-weight: 700; }
+  header p  { font-size: 0.95rem; opacity: 0.85; margin-top: 4px; }
+
+  main { max-width: 960px; margin: 32px auto; padding: 0 16px; display:flex; flex-direction:column; gap:24px; }
+
+  .card { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+  .card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; color: var(--primary); }
+
+  /* ── Character grid ── */
+  .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .char-item { position: relative; cursor: pointer; }
+  .char-item input { display:none; }
+  .char-item label {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    border: 2px solid transparent; border-radius: var(--radius); padding: 10px;
+    cursor: pointer; transition: all .2s;
+  }
+  .char-item label:hover { border-color: var(--primary); background: #f5f4ff; }
+  .char-item input:checked + label { border-color: var(--primary); background: #ede9ff; }
+  .char-item img { width: 90px; height: 90px; object-fit: contain; border-radius: 8px; background:#f8f8f8; }
+  .char-item span { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+
+  /* ── Motion select ── */
+  .motion-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .motion-btn {
+    padding: 8px 18px; border-radius: 24px; border: 2px solid #ddd;
+    cursor: pointer; font-size: 0.9rem; background: white; transition: all .2s;
+  }
+  .motion-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .motion-btn.active { border-color: var(--primary); background: var(--primary); color: white; }
+
+  /* ── Upload zone ── */
+  .drop-zone {
+    border: 2px dashed #ccc; border-radius: var(--radius); padding: 32px;
+    text-align: center; cursor: pointer; transition: all .2s; position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--primary); background: #f5f4ff; }
+  .drop-zone input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; }
+  .drop-zone .icon { font-size: 2.5rem; }
+  .drop-zone p { color: var(--muted); margin-top: 8px; font-size: 0.9rem; }
+  .drop-zone .preview-img { max-height: 150px; max-width: 220px; margin: 12px auto 0; display:none; border-radius:8px; }
+
+  /* ── Generate button ── */
+  .btn-generate {
+    width: 100%; padding: 14px; background: var(--primary); color: white;
+    border: none; border-radius: var(--radius); font-size: 1.05rem; font-weight: 600;
+    cursor: pointer; transition: background .2s;
+  }
+  .btn-generate:hover:not(:disabled) { background: var(--primary-dark); }
+  .btn-generate:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  /* ── Result ── */
+  #result { display: none; }
+  .result-inner { display:flex; flex-direction:column; align-items:center; gap:16px; }
+  .result-inner img { max-width: 360px; border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,.12); }
+  .btn-download {
+    padding: 10px 28px; background: var(--success); color: white; border:none;
+    border-radius: 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    text-decoration: none; display: inline-block;
+  }
+  .btn-download:hover { filter: brightness(1.1); }
+
+  /* ── Status / error ── */
+  #status { display:none; text-align:center; padding: 16px; }
+  .spinner { width:32px; height:32px; border:3px solid #ddd; border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; margin:0 auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-msg { color: var(--error); white-space: pre-wrap; font-size: 0.9rem; }
+
+  /* ── Note box ── */
+  .note { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; font-size:0.85rem; color:#78350f; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>✏️ 手绘转动画 — AnimatedDrawings</h1>
+    <p>上传你的手绘人物，选择动作，即刻生成动画 GIF 下载！</p>
+  </div>
+</header>
+
+<main>
+  <form id="genForm" enctype="multipart/form-data">
+
+    <!-- Step 1: Choose character -->
+    <div class="card">
+      <h2>① 选择内置角色（或在下方上传自己的手绘）</h2>
+      <div class="char-grid">
+        {% for c in chars %}
+        <div class="char-item">
+          <input type="radio" name="char_id" id="c{{ c.id }}" value="{{ c.id }}"
+                 {% if loop.first %}checked{% endif %}>
+          <label for="c{{ c.id }}">
+            <img src="{{ url_for('static', filename=c.img) }}" alt="{{ c.name }}">
+            <span>{{ c.name }}</span>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Step 2: Upload custom drawing -->
+    <div class="card">
+      <h2>② 上传自定义手绘（可选）</h2>
+      <div class="note" style="margin-bottom:14px">
+        ⚠️ 自动识别骨骼需要运行 <strong>torchserve</strong> 检测服务。未启动时将使用上方选择的内置角色。
+        建议先用内置角色体验完整流程。
+      </div>
+      <div class="drop-zone" id="dropZone">
+        <input type="file" name="image" id="fileInput" accept=".png,.jpg,.jpeg,.webp"
+               onchange="previewImage(this)">
+        <div class="icon">🖼️</div>
+        <p>拖拽或点击上传手绘图片<br><small>支持 PNG / JPG / WEBP，最大 16MB</small></p>
+        <img id="uploadPreview" class="preview-img" src="" alt="预览">
+      </div>
+      <button type="button" style="margin-top:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.8rem"
+              onclick="clearUpload()">✕ 清除上传，使用内置角色</button>
+    </div>
+
+    <!-- Step 3: Choose motion -->
+    <div class="card">
+      <h2>③ 选择动作</h2>
+      <input type="hidden" name="motion" id="motionInput" value="{{ motions[0].key }}">
+      <div class="motion-grid">
+        {% for m in motions %}
+        <button type="button" class="motion-btn {% if loop.first %}active{% endif %}"
+                onclick="selectMotion('{{ m.key }}', this)">{{ m.label }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Generate -->
+    <button type="submit" class="btn-generate" id="btnGenerate">
+      🎬 生成动画
+    </button>
+  </form>
+
+  <!-- Status -->
+  <div id="status" class="card">
+    <div class="spinner"></div>
+    <p id="statusText">正在渲染动画，请稍候（约 10–30 秒）…</p>
+  </div>
+
+  <!-- Result -->
+  <div id="result" class="card">
+    <div class="result-inner">
+      <h2 style="color:var(--success)">✅ 动画生成成功！</h2>
+      <img id="resultGif" src="" alt="animation">
+      <a id="downloadBtn" class="btn-download" href="#" download>⬇️ 下载 GIF</a>
+      <button type="button" onclick="resetResult()"
+              style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.9rem">
+        ← 再生成一个
+      </button>
+    </div>
+  </div>
+</main>
+
+<script>
+function selectMotion(key, el) {
+  document.querySelectorAll('.motion-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('motionInput').value = key;
+}
+
+function previewImage(input) {
+  if (!input.files.length) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('uploadPreview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    // Uncheck all preset chars to signal custom upload
+    document.querySelectorAll('input[name=char_id]').forEach(r => r.checked = false);
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function clearUpload() {
+  document.getElementById('fileInput').value = '';
+  const img = document.getElementById('uploadPreview');
+  img.src = '';
+  img.style.display = 'none';
+  // Re-check first preset char
+  document.querySelector('input[name=char_id]').checked = true;
+}
+
+// Drag & drop highlight
+const dz = document.getElementById('dropZone');
+['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, () => dz.classList.remove('drag-over')));
+
+document.getElementById('genForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const form = e.target;
+  const fd   = new FormData(form);
+
+  // If no char selected AND no file uploaded, pick char1
+  const charChecked = form.querySelector('input[name=char_id]:checked');
+  const fileInput   = document.getElementById('fileInput');
+  if (!charChecked && (!fileInput.files || !fileInput.files.length)) {
+    fd.set('char_id', '1');
+  }
+
+  // Show spinner
+  document.getElementById('btnGenerate').disabled = true;
+  document.getElementById('result').style.display = 'none';
+  const statusEl = document.getElementById('status');
+  statusEl.style.display = 'block';
+  document.getElementById('statusText').textContent = '正在渲染动画，请稍候（约 10–30 秒）…';
+  statusEl.querySelector('p').className = '';
+
+  try {
+    const resp = await fetch('/generate', { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    statusEl.style.display = 'none';
+
+    if (!resp.ok || data.error) {
+      statusEl.style.display = 'block';
+      const p = document.getElementById('statusText');
+      p.textContent = '❌ ' + (data.error || '未知错误');
+      p.className = 'error-msg';
+      statusEl.querySelector('.spinner').style.display = 'none';
+    } else {
+      const gifUrl = data.gif_url;
+      document.getElementById('resultGif').src = gifUrl + '?t=' + Date.now();
+      document.getElementById('downloadBtn').href = gifUrl;
+      document.getElementById('result').style.display = 'block';
+    }
+  } catch(err) {
+    statusEl.style.display = 'block';
+    const p = document.getElementById('statusText');
+    p.textContent = '❌ 网络错误: ' + err.message;
+    p.className = 'error-msg';
+  } finally {
+    document.getElementById('btnGenerate').disabled = false;
+  }
+});
+
+function resetResult() {
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('status').style.display = 'none';
+  document.getElementById('status').querySelector('.spinner').style.display = 'block';
+}
+</script>
+</body>
+</html>

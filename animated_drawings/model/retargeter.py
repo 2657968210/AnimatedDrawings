@@ -174,7 +174,7 @@ class Retargeter():
 
         # get the xyz locations of joints within this joint_projection_group
         joints_idxs = [self.bvh_joint_names.index(joint_name) for joint_name in joint_names]
-        joints_mask = np.full(self.joint_positions.shape[1], False, dtype=np.bool8)
+        joints_mask = np.full(self.joint_positions.shape[1], False, dtype=np.bool_)
         for idx in joints_idxs:
             joints_mask[3*idx:3*(idx+1)] = True
         joints_points = self.joint_positions[:, joints_mask]

@@ -263,7 +263,7 @@ class ARAP():
                 continue
 
             # grab the id of first triangle the point is in or on
-            t_idx = int(containing_t_idxs[0])
+            t_idx = int(containing_t_idxs[0][0])
 
             vertex_ids = triangles[t_idx]                               # get ids of verts in triangle
             a_xy, b_xy, c_xy = vertices[vertex_ids]                     # get xy coords of verts

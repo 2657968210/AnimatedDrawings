@@ -102,7 +102,7 @@ class Quaternions:
         """ Computes quaternion rotating from v1 to v2.  """
 
         xyz: List[float] = v1.cross(v2).vs.squeeze().tolist()
-        w: float = float(np.sqrt(float((v1.length**2) * (v2.length**2))) + float(np.dot(v1.vs.squeeze(), v2.vs.squeeze())))
+        w: float = float(np.sqrt(((v1.length**2) * (v2.length**2)).item()) + np.dot(v1.vs.squeeze(), v2.vs.squeeze()))
 
         ret_q = Quaternions([w, *xyz])
         ret_q.normalize()
